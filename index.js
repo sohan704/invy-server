@@ -34,6 +34,7 @@ async function run() {
 
 
     const userCollection = client.db('InvyDB').collection('users');
+    const shopCollection = client.db('InvyDB').collection('shops');
 
     app.post('/jwt', async (req, res) => {
       const user = req.body;
@@ -60,6 +61,39 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+
+    app.post('/shops', async (req, res) => {
+
+      const shop = req.body;
+
+      const finalShop = { ...shop, productLimit: 3};
+
+      const result = await shopCollection.insertOne(finalShop);
+
+      res.send(result);     
+    });
+
+
+    app.patch('/users/:email', async(req,res)=>{
+      const email = req.params.email;
+      const extraShopInfo = req.body;
+
+      const filter = {email : email};
+
+      const updatedDoc = {
+        $set : {
+          shopName: extraShopInfo.shopName,
+          shopLogo: extraShopInfo.shopLogo,
+          shopInfo: extraShopInfo.shopInfo,
+          shopLocation: extraShopInfo.shopLocation,
+          shopOwnerEmail: extraShopInfo.shopOwnerEmail,
+          ownerName: extraShopInfo.ownerName,
+        }
+      }
+      const result = await userCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+    })
 
 
 

@@ -14,7 +14,7 @@ app.use(express.json());
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion,ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kjvt8fn.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -35,6 +35,7 @@ async function run() {
 
     const userCollection = client.db('InvyDB').collection('users');
     const shopCollection = client.db('InvyDB').collection('shops');
+    const productCollection = client.db('InvyDB').collection('products');
 
     app.post('/jwt', async (req, res) => {
       const user = req.body;
@@ -49,22 +50,46 @@ async function run() {
 
     //is user a shop owner
 
-    app.get('/isOwner/:email', async(req,res)=>{
-       const email = req.params.email;
-       const query = {shopOwnerEmail : email};
+    app.get('/isOwner/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { shopOwnerEmail: email };
 
-       const hasShop = await shopCollection.findOne(query);
-       if(hasShop){
-        return res.send({owner : true})
-       }
-       return res.send({owner: false})
+      const hasShop = await shopCollection.findOne(query);
+      if (hasShop) {
+        return res.send({ owner: true })
+      }
+      return res.send({ owner: false })
     })
 
-    app.get('/getShopData/:email', async(req,res)=>{
+    app.get('/getShopData/:email', async (req, res) => {
       const email = req.params.email;
-      const query = {shopOwnerEmail : email};
+      const query = { shopOwnerEmail: email };
       const shopData = await shopCollection.findOne(query);
       res.send(shopData);
+    })
+
+    app.get('/getProductData/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = {shop_id: id};
+      const productData = await productCollection.find(query).toArray();
+      res.send(productData);
+    })
+
+
+    app.post('/addProduct', async (req, res) => {
+      const product = req.body;
+      console.log(product);
+      const finalProduct = {
+        ...product,
+        productDiscount: parseInt(product.productDiscount),
+        productQuantity: parseInt(product.productQuantity),
+        productionCost: parseInt(product.productionCost),
+        profitMargin: parseInt(product.profitMargin),
+      };
+      console.log(finalProduct);
+
+      const result = await productCollection.insertOne(finalProduct);
+      res.send(result);
     })
 
 
@@ -89,31 +114,80 @@ async function run() {
 
       const shop = req.body;
 
-      const finalShop = { ...shop, productLimit: 3};
+      const finalShop = { ...shop, productLimit: 3 };
 
       const result = await shopCollection.insertOne(finalShop);
 
-      res.send(result);     
+      res.send(result);
     });
 
 
-    app.patch('/users/:email', async(req,res)=>{
+    //add product to the product list 
+
+   
+
+
+    // Add a new endpoint to reduce product limit for a specific shop
+    app.patch('/reduceProductLimit/:email', async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = { shopOwnerEmail: email };
+        const shop = await shopCollection.findOne(query);
+
+        if (!shop) {
+          return res.status(404).send({ message: 'Shop not found' });
+        }
+
+        // Ensure productLimit doesn't go below 0
+        if (shop.productLimit > 0) {
+          const newProductLimit = shop.productLimit - 1;
+
+          const updateResult = await shopCollection.updateOne(
+            query,
+            { $set: { productLimit: newProductLimit } }
+          );
+
+          if (updateResult.modifiedCount > 0) {
+            return res.send(updateResult);
+          }
+        }
+
+        return res.send({ message: 'Product limit already at minimum' });
+      } catch (error) {
+        console.error('Error reducing product limit:', error);
+        return res.status(500).send({ message: 'Internal server error' });
+      }
+    });
+
+
+
+    app.delete('/product/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.deleteOne(query);
+      res.send(result);
+    })
+
+
+
+    app.patch('/users/:email', async (req, res) => {
       const email = req.params.email;
       const extraShopInfo = req.body;
 
-      const filter = {email : email};
+      const filter = { email: email };
 
       const updatedDoc = {
-        $set : {
+        $set: {
           shopName: extraShopInfo.shopName,
           shopLogo: extraShopInfo.shopLogo,
           shopInfo: extraShopInfo.shopInfo,
           shopLocation: extraShopInfo.shopLocation,
           shopOwnerEmail: extraShopInfo.shopOwnerEmail,
           ownerName: extraShopInfo.ownerName,
+          role:'manager'
         }
       }
-      const result = await userCollection.updateOne(filter,updatedDoc);
+      const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
 

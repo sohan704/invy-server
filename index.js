@@ -47,6 +47,28 @@ async function run() {
 
     //user related api 
 
+    //is user a shop owner
+
+    app.get('/isOwner/:email', async(req,res)=>{
+       const email = req.params.email;
+       const query = {shopOwnerEmail : email};
+
+       const hasShop = await shopCollection.findOne(query);
+       if(hasShop){
+        return res.send({owner : true})
+       }
+       return res.send({owner: false})
+    })
+
+    app.get('/getShopData/:email', async(req,res)=>{
+      const email = req.params.email;
+      const query = {shopOwnerEmail : email};
+      const shopData = await shopCollection.findOne(query);
+      res.send(shopData);
+    })
+
+
+
     app.post('/users', async (req, res) => {
 
       const user = req.body;

@@ -9,12 +9,12 @@ require('dotenv').config();
 app.use(cors());
 app.use(express.json());
 
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 
 
 
-
-const { MongoClient, ServerApiVersion,ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kjvt8fn.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -70,12 +70,36 @@ async function run() {
       res.send(shopData);
     })
 
-    app.get('/getProductData/:id', async(req,res)=>{
+    app.get('/getProductData/:id', async (req, res) => {
       const id = req.params.id;
-      const query = {shop_id: id};
+      const query = { shop_id: id };
       const productData = await productCollection.find(query).toArray();
       res.send(productData);
     })
+
+
+
+
+    //payment Intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+        payment_method_types: ['card'],
+       
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+
 
 
     app.post('/addProduct', async (req, res) => {
@@ -94,7 +118,7 @@ async function run() {
       res.send(result);
     })
 
-   
+
 
 
 
@@ -118,7 +142,7 @@ async function run() {
 
       const shop = req.body;
 
-      const finalShop = { ...shop, productLimit: 3, totalProductAdded: 0};
+      const finalShop = { ...shop, productLimit: 3, totalProductAdded: 0 };
 
       const result = await shopCollection.insertOne(finalShop);
 
@@ -128,7 +152,7 @@ async function run() {
 
     //add product to the product list 
 
-   
+
 
 
     // Add a new endpoint to reduce product limit for a specific shop
@@ -149,7 +173,7 @@ async function run() {
 
           const updateResult = await shopCollection.updateOne(
             query,
-            { $set: { productLimit: newProductLimit, totalProductAdded : newTotalProductAdded } }
+            { $set: { productLimit: newProductLimit, totalProductAdded: newTotalProductAdded } }
           );
 
           if (updateResult.modifiedCount > 0) {
@@ -168,14 +192,14 @@ async function run() {
 
     //sales apis
 
-    app.post('/sales/:id', async(req,res)=>{
+    app.post('/sales/:id', async (req, res) => {
       const sale = req.body;
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const product = await productCollection.findOne(query);
 
-      if(product.productQuantity < 1){
-        return res.status(404).send({ message: 'No more products to sell' }); 
+      if (product.productQuantity < 1) {
+        return res.status(404).send({ message: 'No more products to sell' });
       }
 
       const result = await salesCollection.insertOne(sale);
@@ -183,31 +207,33 @@ async function run() {
     });
 
 
-    app.patch('/modifySaleCount/:id', async(req,res)=> {
+    app.patch('/modifySaleCount/:id', async (req, res) => {
       const id = req.params.id;
-      const query = {_id : new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const product = await productCollection.findOne(query);
 
-      if(product.productQuantity < 1){
-        return res.status(404).send({ message: 'No more products to sell' }); 
-      }else{
+      if (product.productQuantity < 1) {
+        return res.status(404).send({ message: 'No more products to sell' });
+      } else {
         const newProductQuantity = product.productQuantity - 1;
         const newSaleCount = product.saleCount + 1;
-        const updateResult = await productCollection.updateOne(query, 
-          {$set:{
-              productQuantity : newProductQuantity,saleCount: newSaleCount
-            }}
-          );
-
-          if(updateResult.modifiedCount > 0){
-            res.send(updateResult);
+        const updateResult = await productCollection.updateOne(query,
+          {
+            $set: {
+              productQuantity: newProductQuantity, saleCount: newSaleCount
+            }
           }
+        );
+
+        if (updateResult.modifiedCount > 0) {
+          res.send(updateResult);
+        }
 
 
       }
 
 
-      
+
     })
 
 
@@ -237,7 +263,7 @@ async function run() {
           shopLocation: extraShopInfo.shopLocation,
           shopOwnerEmail: extraShopInfo.shopOwnerEmail,
           ownerName: extraShopInfo.ownerName,
-          role:'manager'
+          role: 'manager'
         }
       }
       const result = await userCollection.updateOne(filter, updatedDoc);

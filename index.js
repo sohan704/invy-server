@@ -36,6 +36,8 @@ async function run() {
     const userCollection = client.db('InvyDB').collection('users');
     const shopCollection = client.db('InvyDB').collection('shops');
     const productCollection = client.db('InvyDB').collection('products');
+    const historyCollection = client.db('InvyDB').collection('history');
+    const salesCollection = client.db('InvyDB').collection('sales');
 
     app.post('/jwt', async (req, res) => {
       const user = req.body;
@@ -92,6 +94,8 @@ async function run() {
       res.send(result);
     })
 
+   
+
 
 
     app.post('/users', async (req, res) => {
@@ -114,7 +118,7 @@ async function run() {
 
       const shop = req.body;
 
-      const finalShop = { ...shop, productLimit: 3 };
+      const finalShop = { ...shop, productLimit: 3, totalProductAdded: 0};
 
       const result = await shopCollection.insertOne(finalShop);
 
@@ -141,10 +145,11 @@ async function run() {
         // Ensure productLimit doesn't go below 0
         if (shop.productLimit > 0) {
           const newProductLimit = shop.productLimit - 1;
+          const newTotalProductAdded = shop.totalProductAdded + 1;
 
           const updateResult = await shopCollection.updateOne(
             query,
-            { $set: { productLimit: newProductLimit } }
+            { $set: { productLimit: newProductLimit, totalProductAdded : newTotalProductAdded } }
           );
 
           if (updateResult.modifiedCount > 0) {
@@ -158,6 +163,54 @@ async function run() {
         return res.status(500).send({ message: 'Internal server error' });
       }
     });
+
+
+
+    //sales apis
+
+    app.post('/sales/:id', async(req,res)=>{
+      const sale = req.body;
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const product = await productCollection.findOne(query);
+
+      if(product.productQuantity < 1){
+        return res.status(404).send({ message: 'No more products to sell' }); 
+      }
+
+      const result = await salesCollection.insertOne(sale);
+      res.send(result);
+    });
+
+
+    app.patch('/modifySaleCount/:id', async(req,res)=> {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)};
+      const product = await productCollection.findOne(query);
+
+      if(product.productQuantity < 1){
+        return res.status(404).send({ message: 'No more products to sell' }); 
+      }else{
+        const newProductQuantity = product.productQuantity - 1;
+        const newSaleCount = product.saleCount + 1;
+        const updateResult = await productCollection.updateOne(query, 
+          {$set:{
+              productQuantity : newProductQuantity,saleCount: newSaleCount
+            }}
+          );
+
+          if(updateResult.modifiedCount > 0){
+            res.send(updateResult);
+          }
+
+
+      }
+
+
+      
+    })
+
+
 
 
 

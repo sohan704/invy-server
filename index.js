@@ -83,6 +83,7 @@ async function run() {
       const query = { shopOwnerEmail: email };
 
       const hasShop = await shopCollection.findOne(query);
+      console.log('owerner info', hasShop);
       if (hasShop) {
         return res.send({ owner: true })
       }
@@ -103,11 +104,17 @@ async function run() {
       res.send(productData);
     })
 
+  
+    app.get('/allShops', async(req,res)=>{
+      const result = await shopCollection.find().toArray();
+      res.send(result);
+    })
+
 
 
 
     //payment Intent
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
 
@@ -128,7 +135,7 @@ async function run() {
 
 
 
-    app.post('/addProduct', async (req, res) => {
+    app.post('/addProduct', verifyToken, async (req, res) => {
       const product = req.body;
       console.log(product);
       const finalProduct = {
@@ -151,6 +158,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await userCollection.findOne(query);
+      console.log('admin info', result);
       if (result?.role === 'admin') {
         res.send({ admin: true });
         return;
@@ -164,7 +172,7 @@ async function run() {
 
     //ADMIN !!!!!!!!
 
-    app.patch('/increaseAdminIncome/:income', async (req, res) => {
+    app.patch('/increaseAdminIncome/:income', verifyToken, async (req, res) => {
       const param = req.params.income;
       const earning = parseInt(param);
 
@@ -187,7 +195,7 @@ async function run() {
 
     ///PRODUCT LIMIT INCREASE 
 
-    app.patch('/increaseLimit/:id/:amount', async (req, res) => {
+    app.patch('/increaseLimit/:id/:amount', verifyToken, async (req, res) => {
       const id = req.params.id;
       const param_amount = req.params.amount;
       const limit = parseInt(param_amount);
@@ -210,7 +218,12 @@ async function run() {
 
     })
     //premium 
+   
 
+    app.get('/users', async(req,res)=>{
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    })
 
 
     app.post('/users', async (req, res) => {
@@ -229,7 +242,7 @@ async function run() {
     });
 
 
-    app.post('/shops', async (req, res) => {
+    app.post('/shops', verifyToken, async (req, res) => {
 
       const shop = req.body;
 
@@ -308,7 +321,7 @@ async function run() {
 
 
     // Add a new endpoint to reduce product limit for a specific shop
-    app.patch('/reduceProductLimit/:email', async (req, res) => {
+    app.patch('/reduceProductLimit/:email', verifyToken, async (req, res) => {
       try {
         const email = req.params.email;
         const query = { shopOwnerEmail: email };

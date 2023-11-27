@@ -48,6 +48,32 @@ async function run() {
       res.send({ token });
     })
 
+
+
+
+    const verifyToken = (req, res, next) => {
+      console.log('inside verify token', req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'Forbidden Access' });
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      // if(!token){
+      //   return res.status(401).send({message: 'Forbidden Access'});
+      // }
+
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+          return res.status(401).send({ message: 'Forbidden Access' });
+        }
+        req.decoded = decoded;
+        next();
+      })
+
+    }
+
+
+
+
     //user related api 
 
     //is user a shop owner
@@ -70,7 +96,7 @@ async function run() {
       res.send(shopData);
     })
 
-    app.get('/getProductData/:id', async (req, res) => {
+    app.get('/getProductData/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { shop_id: id };
       const productData = await productCollection.find(query).toArray();
@@ -91,7 +117,7 @@ async function run() {
         currency: "usd",
         // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
         payment_method_types: ['card'],
-       
+
       });
 
       res.send({
@@ -119,6 +145,71 @@ async function run() {
     })
 
 
+    //check admin 
+
+    app.get('/checkAdmin/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      if (result?.role === 'admin') {
+        res.send({ admin: true });
+        return;
+      }
+
+      res.send({ admin: false });
+
+    })
+
+
+
+    //ADMIN !!!!!!!!
+
+    app.patch('/increaseAdminIncome/:income', async (req, res) => {
+      const param = req.params.income;
+      const earning = parseInt(param);
+
+      const query = { role: 'admin' };
+      const admin = await userCollection.findOne(query);
+      const newIncome = admin.income + earning;
+      const updateResult = await userCollection.updateOne(query, {
+        $set: {
+          income: newIncome
+        }
+      })
+      res.send(updateResult);
+
+
+    })
+
+    //ADMIN !!!!!!!!
+
+
+
+    ///PRODUCT LIMIT INCREASE 
+
+    app.patch('/increaseLimit/:id/:amount', async (req, res) => {
+      const id = req.params.id;
+      const param_amount = req.params.amount;
+      const limit = parseInt(param_amount);
+
+      const query = { _id: new ObjectId(id) };
+      const shop = await shopCollection.findOne(query);
+
+
+      if (!shop) {
+        return res.status(404).send({ message: 'Shop not found' });
+      }
+
+      const newLimit = shop.productLimit + limit;
+      const updateResult = await shopCollection.updateOne(
+        query,
+        { $set: { productLimit: newLimit } }
+      );
+
+      res.send(updateResult);
+
+    })
+    //premium 
 
 
 
@@ -148,6 +239,67 @@ async function run() {
 
       res.send(result);
     });
+
+
+
+
+    app.get('/allSales/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+
+      if (user && user?.role === 'admin') {
+        const result = await salesCollection.find().toArray();
+        res.send(result);
+        return;
+      }
+
+
+      res.send({ message: 'unauthorized route' });
+    })
+
+
+    app.get('/allProducts/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+
+      if (user && user?.role === 'admin') {
+        const result = await productCollection.find().toArray();
+        res.send(result);
+        return;
+      }
+
+
+      res.send({ message: 'unauthorized route' });
+    })
+
+
+    app.get('/adminData/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+
+      if (user && user?.role === 'admin') {
+        res.send(user);
+        return;
+      }
+
+
+      res.send({ message: 'unauthorized route' });
+    })
+
+
+
+
+
+
+
+
+
 
 
     //add product to the product list 
@@ -188,6 +340,14 @@ async function run() {
       }
     });
 
+    //get sales 
+
+    app.get('/sales/:id', async (req, res) => {
+      const shop_id = req.params.id;
+      const query = { shop_id: shop_id };
+      const allSales = await salesCollection.find(query).toArray();
+      res.send(allSales);
+    })
 
 
     //sales apis
@@ -246,6 +406,8 @@ async function run() {
       const result = await productCollection.deleteOne(query);
       res.send(result);
     })
+
+
 
 
 

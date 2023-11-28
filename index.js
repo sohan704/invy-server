@@ -4,8 +4,8 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const port = process.env.PORT || 5000;
 require('dotenv').config();
-
-
+const nodemailer = require('nodemailer');
+const sendMailController = require('./Controllers/sendMail');
 app.use(cors());
 app.use(express.json());
 
@@ -74,6 +74,9 @@ async function run() {
 
 
 
+
+
+
     //user related api 
 
     //is user a shop owner
@@ -83,12 +86,21 @@ async function run() {
       const query = { shopOwnerEmail: email };
 
       const hasShop = await shopCollection.findOne(query);
-      console.log('owerner info', hasShop);
+      // console.log('owerner info', hasShop);
       if (hasShop) {
         return res.send({ owner: true })
       }
       return res.send({ owner: false })
     })
+
+
+    app.post("/promoEmail", async (req, res) => {
+      const email = req.body;
+      sendMailController.sendEmail(email);
+      res.send({email: 'sent'});
+    });
+
+
 
     app.get('/getShopData/:email', async (req, res) => {
       const email = req.params.email;
@@ -97,15 +109,15 @@ async function run() {
       res.send(shopData);
     })
 
-    app.get('/getProductData/:id', verifyToken, async (req, res) => {
+    app.get('/getProductData/:id', async (req, res) => {
       const id = req.params.id;
       const query = { shop_id: id };
       const productData = await productCollection.find(query).toArray();
       res.send(productData);
     })
 
-  
-    app.get('/allShops', async(req,res)=>{
+
+    app.get('/allShops', async (req, res) => {
       const result = await shopCollection.find().toArray();
       res.send(result);
     })
@@ -113,8 +125,25 @@ async function run() {
 
 
 
+    // 
+    //email sending goes here...
+
+  
+
+
+
+
+    //
+
+
+
+
+
+
+
+
     //payment Intent
-    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+    app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
 
@@ -135,9 +164,9 @@ async function run() {
 
 
 
-    app.post('/addProduct', verifyToken, async (req, res) => {
+    app.post('/addProduct', async (req, res) => {
       const product = req.body;
-      console.log(product);
+      // console.log(product);
       const finalProduct = {
         ...product,
         productDiscount: parseInt(product.productDiscount),
@@ -145,7 +174,7 @@ async function run() {
         productionCost: parseInt(product.productionCost),
         profitMargin: parseInt(product.profitMargin),
       };
-      console.log(finalProduct);
+      // console.log(finalProduct);
 
       const result = await productCollection.insertOne(finalProduct);
       res.send(result);
@@ -158,7 +187,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await userCollection.findOne(query);
-      console.log('admin info', result);
+      // console.log('admin info', result);
       if (result?.role === 'admin') {
         res.send({ admin: true });
         return;
@@ -172,7 +201,7 @@ async function run() {
 
     //ADMIN !!!!!!!!
 
-    app.patch('/increaseAdminIncome/:income', verifyToken, async (req, res) => {
+    app.patch('/increaseAdminIncome/:income', async (req, res) => {
       const param = req.params.income;
       const earning = parseInt(param);
 
@@ -195,12 +224,13 @@ async function run() {
 
     ///PRODUCT LIMIT INCREASE 
 
-    app.patch('/increaseLimit/:id/:amount', verifyToken, async (req, res) => {
+    app.patch('/increaseLimit/:id/:amount', async (req, res) => {
       const id = req.params.id;
       const param_amount = req.params.amount;
       const limit = parseInt(param_amount);
-
+      console.log('Entered ', id);
       const query = { _id: new ObjectId(id) };
+      console.log('Query', query);
       const shop = await shopCollection.findOne(query);
 
 
@@ -218,9 +248,9 @@ async function run() {
 
     })
     //premium 
-   
 
-    app.get('/users', async(req,res)=>{
+
+    app.get('/users', async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     })
@@ -236,13 +266,15 @@ async function run() {
       if (existingUser) {
         return res.send({ message: 'user already exists', insertedId: null })
       }
-      console.log(user);
+      // console.log(user);
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
 
 
-    app.post('/shops', verifyToken, async (req, res) => {
+
+
+    app.post('/shops', async (req, res) => {
 
       const shop = req.body;
 
@@ -321,7 +353,7 @@ async function run() {
 
 
     // Add a new endpoint to reduce product limit for a specific shop
-    app.patch('/reduceProductLimit/:email', verifyToken, async (req, res) => {
+    app.patch('/reduceProductLimit/:email', async (req, res) => {
       try {
         const email = req.params.email;
         const query = { shopOwnerEmail: email };

@@ -97,7 +97,7 @@ async function run() {
     app.post("/promoEmail", async (req, res) => {
       const email = req.body;
       sendMailController.sendEmail(email);
-      res.send({email: 'sent'});
+      res.send({ email: 'sent' });
     });
 
 
@@ -126,9 +126,12 @@ async function run() {
 
 
     // 
-    //email sending goes here...
 
-  
+
+
+
+
+
 
 
 
@@ -181,6 +184,131 @@ async function run() {
     })
 
 
+    //product updating functionality 
+
+    app.patch('/updateProduct/:id', async (req, res) => {
+      const id = req.params.id;
+      const newProduct = req.body;
+
+      // console.log('id is ', id, 'newProduct is ', newProduct);
+
+
+      const query = { _id: new ObjectId(id) };
+
+      const oldProduct = await productCollection.findOne(query);
+      let newSellingPrice = oldProduct.sellingPrice;
+
+      const calc_tax = (price) => {
+        const tax2 = parseInt(price) * (7.5 / 100);
+        // console.log('tax is ', tax2);
+        return tax2;
+      }
+      const calc_profit = (price, profit) => {
+        const profit2 = parseInt(price) * (parseInt(profit) / 100);
+        // console.log('profit is', profit2);
+        return profit2;
+      }
+
+      const total = (price, profit) => {
+        const total2 = parseInt(price) + parseFloat(calc_tax(price)) + parseInt(calc_profit(price, profit));
+        // console.log('total is ', total2);
+        return total2;
+      }
+      // let taxAmount = parseInt(data?.productionCost) * (7.5 / 100);
+      // let profitAmount = parseInt(data?.productionCost) * (parseInt(data?.profitMargin) / 100);
+
+      // const sellingPrice = parseInt(data?.productionCost) + taxAmount + profitAmount;
+
+      if (newProduct.productionCost && newProduct.profitMargin) {
+        // console.log('inside 1');
+        newSellingPrice = total(newProduct.productionCost, newProduct.profitMargin);
+      }
+      else if (newProduct.productionCost) {
+        // console.log('inside 2');
+        newSellingPrice = total(newProduct.productionCost, oldProduct.profitMargin);
+
+      }
+      else if (newProduct.profitMargin) {
+        // console.log('inside 3');
+        newSellingPrice = total(oldProduct.productionCost, newProduct.profitMargin);
+      }
+
+      const updatedDoc = {
+        $set: {
+          productName: newProduct.productName || oldProduct.productName,
+          productQuantity: parseInt(newProduct.productQuantity) || oldProduct.productQuantity,
+          productLocation: newProduct.productLocation || oldProduct.productLocation,
+          productionCost: parseInt(newProduct.productionCost) || oldProduct.productionCost,
+          profitMargin: parseInt(newProduct.profitMargin) || oldProduct.profitMargin,
+          productDiscount: parseInt(newProduct.productDiscount) || oldProduct.productDiscount,
+          productDescription: newProduct.productDescription || oldProduct.productDescription,
+          productImage: newProduct.productImage || oldProduct.productImage,
+          sellingPrice: newSellingPrice
+        }
+      }
+
+
+
+
+
+      const updateResult = await productCollection.updateOne(query, updatedDoc);
+      res.send(updateResult);
+      // const updateResult = await userCollection.updateOne(query, {
+      //   $set: {
+      //     income: newIncome
+      //   }
+      // })
+    })
+
+
+    // productName: 'Veggie Beef Pizza',
+    // prodQuantity: '1',
+    // productLocation: '',
+    // productionCost: '21',
+    // profitMargin: '59',
+    // productDiscount: '',
+    // productDescription: '',
+    // productImage: 'https://i.ibb.co/60psalesCollechtP0/ah5.png' 
+
+
+
+    app.post('/addToCart', async (req, res) => {
+      const myCart = req.body;
+      const currentDateTime = new Date();
+      const formattedDateTime = currentDateTime.toLocaleString();
+      // console.log(myCart);
+
+      for (const product of myCart) {
+        const { _id, ...productWithoutId } = product;
+        // console.log({...productWithoutId, productSoldDate: formattedDateTime});
+         const result = await salesCollection.insertOne({...productWithoutId, productSoldDate: formattedDateTime});
+      }
+
+      for(const product of myCart){
+        const query = {_id : new ObjectId(product._id)};
+        const oldProduct = await productCollection.findOne(query);
+        const newSalesAmount = oldProduct.saleCount + 1;
+        const newProductQuantity = oldProduct.productQuantity - 1;
+        const newResult = await productCollection.updateOne(query, {
+          $set: {
+            saleCount: newSalesAmount,
+            productQuantity: newProductQuantity
+          }
+        })
+      }
+
+      
+      
+      res.send({ message: 'Products processed successfully' });
+    });
+
+
+
+
+
+
+
+
     //check admin 
 
     app.get('/checkAdmin/:email', async (req, res) => {
@@ -228,9 +356,9 @@ async function run() {
       const id = req.params.id;
       const param_amount = req.params.amount;
       const limit = parseInt(param_amount);
-      console.log('Entered ', id);
+      // console.log('Entered ', id);
       const query = { _id: new ObjectId(id) };
-      console.log('Query', query);
+      // console.log('Query', query);
       const shop = await shopCollection.findOne(query);
 
 

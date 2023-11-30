@@ -272,35 +272,149 @@ async function run() {
 
 
 
-    app.post('/addToCart', async (req, res) => {
+    // app.post('/addToCart', async (req, res) => {
+    //   const myCart = req.body;
+    //   const currentDateTime = new Date();
+    //   const formattedDateTime = currentDateTime.toLocaleString();
+
+    //   for (const product of myCart) {
+    //     const { _id, ...productWithoutId } = product;
+    //      const result = await salesCollection.insertOne({...productWithoutId, productSoldDate: formattedDateTime});
+    //      res.send(result);
+
+    //   }
+
+    //   for(const product of myCart){
+    //     const query = {_id : new ObjectId(product._id)};
+    //     const oldProduct = await productCollection.findOne(query);
+    //     const newSalesAmount = oldProduct.saleCount + 1;
+    //     const newProductQuantity = oldProduct.productQuantity - 1;
+    //     const newResult = await productCollection.updateOne(query, {
+    //       $set: {
+    //         saleCount: newSalesAmount,
+    //         productQuantity: newProductQuantity
+    //       }
+    //     })
+    //     res.send(newResult);
+
+    //   }
+
+
+
+    //   res.send({ message: 'Products processed successfully' });
+    // });
+
+
+
+    app.post('/addtocart1', async (req, res) => {
       const myCart = req.body;
-      const currentDateTime = new Date();
-      const formattedDateTime = currentDateTime.toLocaleString();
-      // console.log(myCart);
 
-      for (const product of myCart) {
+      const productsToInsert = myCart.map(product => {
         const { _id, ...productWithoutId } = product;
-        // console.log({...productWithoutId, productSoldDate: formattedDateTime});
-         const result = await salesCollection.insertOne({...productWithoutId, productSoldDate: formattedDateTime});
-      }
+        const currentDateTime = new Date();
+        const formattedDateTime = currentDateTime.toLocaleString();
+        return { ...productWithoutId, productSoldDate: formattedDateTime }; // Assuming formattedDateTime is defined somewhere
+      });
+      console.log('products to add ', productsToInsert);
 
-      for(const product of myCart){
-        const query = {_id : new ObjectId(product._id)};
-        const oldProduct = await productCollection.findOne(query);
-        const newSalesAmount = oldProduct.saleCount + 1;
-        const newProductQuantity = oldProduct.productQuantity - 1;
-        const newResult = await productCollection.updateOne(query, {
-          $set: {
-            saleCount: newSalesAmount,
-            productQuantity: newProductQuantity
-          }
-        })
-      }
+      const insertResult = await salesCollection.insertMany(productsToInsert);
+      res.json(insertResult);
 
-      
-      
-      res.send({ message: 'Products processed successfully' });
+    })
+
+
+    app.patch('/addtocart2', async (req, res) => {
+      const myCart = req.body; // Assuming request body contains an array of products
+
+      try {
+        const updatePromises = myCart.map(async (product) => {
+          const productId = new ObjectId(product._id);
+
+          // Find the product by its ID and update saleCount and productQuantity
+          return productCollection.updateOne(
+            { _id: productId },
+            {
+              $inc: { saleCount: 1 }, // Increment saleCount by 1
+              $inc: { productQuantity: -1 } // Decrement productQuantity by 1
+            }
+          );
+        });
+
+        // Wait for all update operations to complete
+        await Promise.all(updatePromises);
+
+        res.json({ message: 'Cart updated successfully' });
+      } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+      }
     });
+
+
+
+    // app.patch('/addtocart2', async (req, res) => {
+
+    //     const myCart = req.body; // Assuming request body contains an array of products
+
+    //     // Create an array of product IDs from myCart
+    //     const productIds = myCart.map(product =>  new ObjectId(product._id));
+
+    //     // Define the query to find products by their IDs
+    //     const query = { _id: { $in: productIds } };
+    //     console.log('all query',query);
+    //     // Find multiple products based on the IDs
+    //     // const products = await productCollection.find(query).toArray();
+
+    //     // Update multiple products using updateMany
+    //     const updateResult = await productCollection.updateMany(query, {
+    //       $inc: { saleCount: 1 }, // Increment saleCount by 1
+    //       $inc: { productQuantity: -1 } // Decrement productQuantity by 1
+    //     });
+
+    //     res.json(updateResult);
+
+
+    // });
+
+
+
+
+
+    // app.post('/addToCart', async (req, res) => {
+    //   const myCart = req.body;
+    //   const currentDateTime = new Date();
+    //   const formattedDateTime = currentDateTime.toLocaleString();
+
+    //   try {
+    //     for (const product of myCart) {
+    //       const { _id, ...productWithoutId } = product;
+
+    //       // Insert sales data
+    //       const result = await salesCollection.insertOne({ ...productWithoutId, productSoldDate: formattedDateTime });
+
+    //       // Update product information
+    //       const query = { _id: new ObjectId(product._id) };
+    //       const oldProduct = await productCollection.findOne(query);
+
+    //       const newSalesAmount = oldProduct.saleCount + 1;
+    //       const newProductQuantity = oldProduct.productQuantity - 1;
+
+    //       // Update product details
+    //       await productCollection.updateOne(query, {
+    //         $set: {
+    //           saleCount: newSalesAmount,
+    //           productQuantity: newProductQuantity
+    //         }
+    //       });
+    //     }
+
+    //     res.send({ message: 'Products processed successfully' });
+    //   } catch (error) {
+    //     console.error(error);
+    //     res.status(500).send({ error: 'Internal Server Error' });
+    //   }
+    // });
+
+
 
 
 
@@ -626,7 +740,7 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-  res.send('Invy is LIVE');
+  res.send('Invy version 2 is LIVE');
 })
 
 app.listen(port, () => {
